@@ -1,0 +1,2 @@
+module_translate = "Translate"
+msg_trans_channel = "Translation %s for %s (target: %s)."

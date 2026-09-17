@@ -1,5 +1,5 @@
-"""Public provider-neutral translation primitives for PyGDO."""
+"""Opt-in, channel-scoped Google Translate module for PyGDO."""
 
-from .pygdo_translate import Translation, Translator
+from .GTranslate import GTranslate, GTranslateError, Translation
 
-__all__ = ('Translation', 'Translator')
+__all__ = ('GTranslate', 'GTranslateError', 'Translation')

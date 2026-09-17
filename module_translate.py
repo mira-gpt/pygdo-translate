@@ -29,8 +29,10 @@ class module_translate(GDO_Module):
 
         # A one-off request works in every channel, e.g. ``$en-de Hello``.
         # Handle it before ordinary commands reach the parser.
-        trigger = re.escape(message.get_trigger())
-        if one_off := re.fullmatch(rf'{trigger}([a-zA-Z]{{2}})-([a-zA-Z]{{2}})\s+(.+)', text):
+        # `$de-en` is intentionally portable across connectors, including
+        # channels whose ordinary command trigger is `.`.
+        triggers = rf'(?:{re.escape(message.get_trigger())}|\$)'
+        if one_off := re.fullmatch(rf'{triggers}([a-zA-Z]{{2}})-([a-zA-Z]{{2}})\s+(.+)', text):
             source, target, requested = one_off.groups()
             try:
                 translation = await GTranslate.translate(requested, source.lower(), target.lower())
@@ -45,17 +47,18 @@ class module_translate(GDO_Module):
         if text.startswith(message.get_trigger()):
             return
 
-        enabled, target = trans.channel_settings(channel)
-        if not enabled:
+        enabled, targets = trans.channel_settings(channel)
+        if not enabled or not targets:
             return
-        try:
-            translation = await GTranslate.translate(text, target=target)
-        except GTranslateError:
-            # Translation is an optional convenience; a remote outage must not
-            # affect the original chat message or flood the channel with errors.
-            return
-        if translation.source_language.lower() == target.lower() or translation.text == text:
-            return
-        await channel.send(
-            f'↳ {user.get_name()} [{translation.source_language}→{target}]: {translation.text}'
-        )
+        for target in targets:
+            try:
+                translation = await GTranslate.translate(text, target=target)
+            except GTranslateError:
+                # Translation is an optional convenience; a remote outage must not
+                # affect the original chat message or flood the channel with errors.
+                continue
+            if translation.source_language.lower() == target or translation.text == text:
+                continue
+            await channel.send(
+                f'↳ {user.get_name()} [{translation.source_language}→{target}]: {translation.text}'
+            )

@@ -1,2 +1,4 @@
 module_translate = "Translate"
 msg_trans_channel = "Translation %s for %s (target: %s)."
+msg_trans_text = "[%s→%s] %s"
+err_trans_unavailable = "Translation is temporarily unavailable."

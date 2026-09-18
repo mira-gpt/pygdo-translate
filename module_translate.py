@@ -24,7 +24,10 @@ class module_translate(GDO_Module):
             return ''
 
     def cfg_google_api_key(self) -> str:
-        return self.get_config_val('translate_google_api_key')
+        # Existing installations may already have a blank persisted config
+        # value from before secret.toml was added. Prefer an explicit config,
+        # but fall back to the local, ignored deployment secret.
+        return self.get_config_val('translate_google_api_key') or self.secret_api_key()
 
     def gdo_classes(self) -> list[type[GDO]]:
         return []

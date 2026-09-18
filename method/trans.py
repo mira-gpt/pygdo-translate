@@ -22,13 +22,15 @@ class trans(Method):
     def gdo_method_config_channel(cls) -> list[GDT]:
         return [
             GDT_Bool('translate_enabled').initial('0'),
-            GDT_JSON('translate_languages').not_null().initial('["en"]'),
+            # A channel explicitly chooses every target language. English is
+            # useful in some rooms, but must not be silently enabled.
+            GDT_JSON('translate_languages').not_null().initial('[]'),
         ]
 
     def gdo_parameters(self) -> list[GDT]:
         return [
             GDT_Channel('channel').default_current(),
-            GDT_Language('lang').not_null().initial('en'),
+            GDT_Language('lang').not_null(),
             GDT_Bool('enabled').initial('1').positional(),
         ]
 

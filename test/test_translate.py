@@ -40,3 +40,8 @@ class TranslateTest(unittest.TestCase):
         self.assertEqual(['channel', 'lang', 'enabled'], [field.get_name() for field in trans().gdo_parameters()])
         self.assertEqual(['lang', 'text'], [field.get_name() for field in t().gdo_parameters()])
         self.assertIn('translate_languages', [field.get_name() for field in trans.gdo_method_config_channel()])
+
+    def test_channel_interpreter_has_no_implicit_target_language(self):
+        settings = {field.get_name(): field for field in trans.gdo_method_config_channel()}
+        self.assertEqual('[]', settings['translate_languages'].get_val())
+        self.assertIsNone(trans().gdo_parameters()[1].get_val())

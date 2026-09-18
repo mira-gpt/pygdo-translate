@@ -15,8 +15,12 @@ class TranslateTest(unittest.TestCase):
         Application.init_cli()
 
     def test_parse_google_response(self):
-        payload = [[['Hello', '안녕하세요', None, None]], None, 'ko']
+        payload = {'data': {'translations': [{'translatedText': 'Hello', 'detectedSourceLanguage': 'ko'}]}}
         self.assertEqual(Translation('Hello', 'ko'), GTranslate.parse_response(payload))
+
+    def test_parse_google_response_keeps_explicit_source(self):
+        payload = {'data': {'translations': [{'translatedText': 'Hallo'}]}}
+        self.assertEqual(Translation('Hallo', 'en'), GTranslate.parse_response(payload, 'en'))
 
     def test_invalid_google_response_is_rejected(self):
         with self.assertRaises(Exception):

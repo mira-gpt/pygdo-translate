@@ -1,14 +1,30 @@
 from __future__ import annotations
 
 import re
+import tomllib
 
 from gdo.base.GDO import GDO
 from gdo.base.GDO_Module import GDO_Module
+from gdo.base.GDT import GDT
 from gdo.base.Message import Message
+from gdo.core.GDT_Secret import GDT_Secret
 
 
 class module_translate(GDO_Module):
-    """Opt-in, channel-scoped Google Translate for PyGDO chat."""
+    """Opt-in, channel-scoped Google Cloud Translation for PyGDO chat."""
+
+    def gdo_module_config(self) -> list[GDT]:
+        return [GDT_Secret('translate_google_api_key').initial(self.secret_api_key())]
+
+    def secret_api_key(self) -> str:
+        try:
+            with open(self.file_path('secret.toml'), 'rb') as file:
+                return str(tomllib.load(file).get('google', {}).get('api_key', ''))
+        except (FileNotFoundError, tomllib.TOMLDecodeError):
+            return ''
+
+    def cfg_google_api_key(self) -> str:
+        return self.get_config_val('translate_google_api_key')
 
     def gdo_classes(self) -> list[type[GDO]]:
         return []
@@ -35,7 +51,8 @@ class module_translate(GDO_Module):
         if one_off := re.fullmatch(rf'{triggers}([a-zA-Z]{{2}})-([a-zA-Z]{{2}})\s+(.+)', text):
             source, target, requested = one_off.groups()
             try:
-                translation = await GTranslate.translate(requested, source.lower(), target.lower())
+                translation = await GTranslate.translate(
+                    requested, source.lower(), target.lower(), self.cfg_google_api_key())
             except GTranslateError:
                 await channel.send('Translation is temporarily unavailable.')
             else:
@@ -52,7 +69,7 @@ class module_translate(GDO_Module):
             return
         for target in targets:
             try:
-                translation = await GTranslate.translate(text, target=target)
+                translation = await GTranslate.translate(text, target=target, api_key=self.cfg_google_api_key())
             except GTranslateError:
                 # Translation is an optional convenience; a remote outage must not
                 # affect the original chat message or flood the channel with errors.

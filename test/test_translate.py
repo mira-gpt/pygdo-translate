@@ -6,6 +6,7 @@ from gdo.base.Application import Application
 from gdo.translate.GTranslate import GTranslate, Translation
 from gdo.translate.method.t import t
 from gdo.translate.method.trans import trans
+from gdo.translate.module_translate import module_translate
 
 
 class TranslateTest(unittest.TestCase):
@@ -45,3 +46,16 @@ class TranslateTest(unittest.TestCase):
         settings = {field.get_name(): field for field in trans.gdo_method_config_channel()}
         self.assertEqual('[]', settings['translate_languages'].get_val())
         self.assertIsNone(trans().gdo_parameters()[1].get_val())
+
+    def test_similar_translations_are_suppressed_by_normalized_edit_distance(self):
+        self.assertTrue(module_translate.suppress_similar_translation(
+            'abcdefghijklmnopqrst', 'abcdefghijklmnopqrs'))
+        self.assertTrue(module_translate.suppress_similar_translation('HELLO', 'hello'))
+        self.assertFalse(module_translate.suppress_similar_translation(
+            'abcdefghijklmnopqrst', 'abcdefghijklmnopq'))
+
+    def test_short_or_non_letter_messages_are_not_translation_candidates(self):
+        self.assertFalse(module_translate.has_minimum_readable_letters('mh'))
+        self.assertFalse(module_translate.has_minimum_readable_letters('?! 42'))
+        self.assertTrue(module_translate.has_minimum_readable_letters('hey'))
+        self.assertTrue(module_translate.has_minimum_readable_letters('안녕하'))

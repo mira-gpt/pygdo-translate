@@ -35,6 +35,36 @@ class module_translate(GDO_Module):
     def gdo_subscribe_events(self):
         self.subscribe('new_message', self.on_new_message)
 
+    @staticmethod
+    def levenshtein_distance(left: str, right: str) -> int:
+        """Return the edit distance without a third-party dependency."""
+        if len(left) < len(right):
+            left, right = right, left
+        previous = list(range(len(right) + 1))
+        for left_index, left_char in enumerate(left, 1):
+            current = [left_index]
+            for right_index, right_char in enumerate(right, 1):
+                current.append(min(
+                    current[-1] + 1,
+                    previous[right_index] + 1,
+                    previous[right_index - 1] + (left_char != right_char),
+                ))
+            previous = current
+        return previous[-1]
+
+    @classmethod
+    def suppress_similar_translation(cls, source: str, translated: str) -> bool:
+        """Suppress translations whose case-insensitive edit distance is <= 10%."""
+        source = source.casefold()
+        translated = translated.casefold()
+        length = max(len(source), len(translated))
+        return bool(length) and cls.levenshtein_distance(source, translated) * 10 <= length
+
+    @staticmethod
+    def has_minimum_readable_letters(text: str) -> bool:
+        """Whether a chat line has enough alphabetic content to translate."""
+        return sum(character.isalpha() for character in text) >= 3
+
     async def on_new_message(self, message: Message):
         """Translate ordinary chat only when its channel opted in via ``$trans``."""
         channel = message._env_channel
@@ -68,7 +98,7 @@ class module_translate(GDO_Module):
             return
 
         enabled, targets = trans.channel_settings(channel)
-        if not enabled or not targets:
+        if not enabled or not targets or not self.has_minimum_readable_letters(text):
             return
         for target in targets:
             try:
@@ -77,7 +107,8 @@ class module_translate(GDO_Module):
                 # Translation is an optional convenience; a remote outage must not
                 # affect the original chat message or flood the channel with errors.
                 continue
-            if translation.source_language.lower() == target or translation.text == text:
+            if (translation.source_language.lower() == target or
+                    self.suppress_similar_translation(text, translation.text)):
                 continue
             await channel.send(
                 f'↳ {user.get_name()} [{translation.source_language}→{target}]: {translation.text}'

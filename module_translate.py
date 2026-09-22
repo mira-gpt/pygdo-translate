@@ -13,6 +13,8 @@ from gdo.core.GDT_Secret import GDT_Secret
 class module_translate(GDO_Module):
     """Opt-in, channel-scoped Google Cloud Translation for PyGDO chat."""
 
+    MIN_TRANSLATABLE_BYTES = 12
+
     def gdo_module_config(self) -> list[GDT]:
         return [GDT_Secret('translate_google_api_key').initial(self.secret_api_key())]
 
@@ -62,8 +64,20 @@ class module_translate(GDO_Module):
 
     @staticmethod
     def has_minimum_readable_letters(text: str) -> bool:
-        """Whether a chat line has enough alphabetic content to translate."""
-        return sum(character.isalpha() for character in text) >= 3
+        """Whether a chat line is substantial enough for language detection."""
+        return (
+            len(text.encode('utf-8')) >= module_translate.MIN_TRANSLATABLE_BYTES and
+            sum(character.isalpha() for character in text) >= 3
+        )
+
+    @staticmethod
+    def is_short_ascii_chat_word(text: str) -> bool:
+        """Avoid guessing a language for IRC words such as ``wut`` or ``mkay``.
+
+        Non-Latin short messages keep the original three-letter policy: this
+        rule only targets the common, ambiguous ASCII one-word chatter.
+        """
+        return bool(re.fullmatch(r'[A-Za-z]{3,4}', text.strip()))
 
     async def on_new_message(self, message: Message):
         """Translate ordinary chat only when its channel opted in via ``$trans``."""
@@ -98,7 +112,9 @@ class module_translate(GDO_Module):
             return
 
         enabled, targets = trans.channel_settings(channel)
-        if not enabled or not targets or not self.has_minimum_readable_letters(text):
+        if (not enabled or not targets or
+                not self.has_minimum_readable_letters(text) or
+                self.is_short_ascii_chat_word(text)):
             return
         for target in targets:
             try:

@@ -57,5 +57,15 @@ class TranslateTest(unittest.TestCase):
     def test_short_or_non_letter_messages_are_not_translation_candidates(self):
         self.assertFalse(module_translate.has_minimum_readable_letters('mh'))
         self.assertFalse(module_translate.has_minimum_readable_letters('?! 42'))
-        self.assertTrue(module_translate.has_minimum_readable_letters('hey'))
-        self.assertTrue(module_translate.has_minimum_readable_letters('안녕하'))
+        self.assertFalse(module_translate.has_minimum_readable_letters('hey'))
+        self.assertFalse(module_translate.has_minimum_readable_letters('hello world'))
+        self.assertFalse(module_translate.has_minimum_readable_letters('안녕하'))
+        self.assertTrue(module_translate.has_minimum_readable_letters('good morning!'))
+        self.assertTrue(module_translate.has_minimum_readable_letters('안녕하세요 여러분'))
+
+    def test_short_ascii_irc_words_are_not_sent_to_language_detection(self):
+        self.assertTrue(module_translate.is_short_ascii_chat_word('wut'))
+        self.assertTrue(module_translate.is_short_ascii_chat_word('mkay'))
+        self.assertTrue(module_translate.is_short_ascii_chat_word('LOL'))
+        self.assertFalse(module_translate.is_short_ascii_chat_word('hello'))
+        self.assertFalse(module_translate.is_short_ascii_chat_word('안녕하'))

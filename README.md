@@ -30,6 +30,13 @@ message is then translated to both English and Korean. Use `$trans --lang=en 0`
 to remove only English (and likewise for any other target). Normal chat
 continues unchanged if the translation provider is unavailable.
 
+In a channel with translation mode enabled, `$all <text>` translates the
+text into the channel's configured language and queues that translation for
+speech. The channel language must have a supported, configured speech voice.
+Speech requests and translations are limited to 300 characters; queued speech
+does not confirm playback. Do not use the command for private material in a
+public channel or when microphone feedback would reintroduce the output.
+
 For a one-off translation in any channel, use an ISO-639-1 source/target pair:
 
 ```text

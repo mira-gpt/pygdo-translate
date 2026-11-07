@@ -95,6 +95,39 @@ class module_translate(GDO_Module):
         # `$de-en` is intentionally portable across connectors, including
         # channels whose ordinary command trigger is `.`.
         triggers = rf'(?:{re.escape(message.get_trigger())}|\$)'
+        if all_request := re.fullmatch(rf'{triggers}all\s+(.+)', text, re.DOTALL):
+            message.message('')
+            enabled, _ = trans.channel_settings(channel)
+            if not enabled:
+                await channel.send('Translation mode is not enabled in this channel.')
+                return
+            requested = all_request.group(1).strip()
+            target = (channel.get_lang_iso() or '').lower()
+            from gdo.audio.language import VOICES
+            if target not in VOICES:
+                await channel.send('No speech voice is configured for the channel language.')
+                return
+            if not requested or len(requested) > 300:
+                await channel.send('Please provide between 1 and 300 characters.')
+                return
+            try:
+                translation = await GTranslate.translate(requested, target=target, api_key=self.cfg_google_api_key())
+            except GTranslateError:
+                await channel.send('Translation is temporarily unavailable.')
+                return
+            spoken = translation.text.strip()
+            if not spoken or len(spoken) > 300:
+                await channel.send('The translated text is empty or exceeds the speech limit.')
+                return
+            from gdo.base.IPC import IPC
+            import msgspec.json
+            args = [spoken, target]
+            if len(msgspec.json.encode(args)) > IPC.MAX_EVENT_ARG_SIZE:
+                await channel.send('The translated text exceeds the speech request size limit.')
+                return
+            await channel.send(f'↳ [{translation.source_language}→{target}]: {spoken}')
+            IPC.send_to_dog('audio.ipc_say', args)
+            return
         if one_off := re.fullmatch(rf'{triggers}([a-zA-Z]{{2}})-([a-zA-Z]{{2}})\s+(.+)', text):
             source, target, requested = one_off.groups()
             try:

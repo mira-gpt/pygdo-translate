@@ -30,7 +30,7 @@ class trans(Method):
 
     def gdo_parameters(self) -> list[GDT]:
         return [
-            GDT_Channel('channel').default_current(),
+            GDT_Channel('channel'),
             GDT_Language('lang'),
             GDT_Bool('enabled').initial('1').positional(),
             GDT_Bool('pause'),
@@ -48,8 +48,8 @@ class trans(Method):
         )
 
     async def gdo_execute(self) -> GDT:
-        # GDT_Channel.default_current() resolves an explicitly blank input,
-        # while a text command omits the optional field altogether.
+        # The method's own environment remains stable even when a bridge
+        # creates another Message before this command is parsed.
         channel = self.param_value('channel') or self._env_channel
         raw_language = self.param_val('lang')
         language = raw_language.lower() if raw_language else None

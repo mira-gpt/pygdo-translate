@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from gdo.base.Application import Application
+from gdo.base.Message import Message
 from gdo.base.Render import Mode
 from gdo.translate.GTranslate import GTranslate, Translation
 from gdo.translate.method.t import t
@@ -50,6 +51,16 @@ class TranslateTest(unittest.TestCase):
         self.assertIsNone(trans().gdo_parameters()[1].get_val())
         self.assertIsNone(trans().gdo_parameters()[-1].get_value())
 
+    def test_omitted_channel_ignores_bridged_current_message(self):
+        previous = Message.CURRENT
+        try:
+            other_channel = MagicMock()
+            Message('bridged copy', Mode.render_txt).env_channel(other_channel)
+            channel_field = trans().gdo_parameters()[0]
+            self.assertIsNone(channel_field.get_value())
+        finally:
+            Message.CURRENT = previous
+
     def test_similar_translations_are_suppressed_by_normalized_edit_distance(self):
         self.assertTrue(module_translate.suppress_similar_translation(
             'abcdefghijklmnopqrst', 'abcdefghijklmnopqrs'))
@@ -95,6 +106,28 @@ class TranslatePauseTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(('enabled', 'test', 'en, de'), await method.gdo_execute())
         self.assertEqual(['en', 'de'], settings['translate_languages'])
         self.assertTrue(settings['translate_enabled'])
+
+    async def test_omitted_channel_pauses_source_not_bridged_channel(self):
+        method = trans()
+        source, bridged = MagicMock(), MagicMock()
+        source.render_name.return_value = 'Discord'
+        method._env_channel = source
+        method.param_val = MagicMock(return_value=None)
+        method.param_value = MagicMock(side_effect=lambda key: {'channel': None, 'enabled': True, 'pause': True}[key])
+        settings = {source: {'translate_languages': ['en', 'de'], 'translate_paused': False},
+                    bridged: {'translate_languages': ['ko'], 'translate_paused': False}}
+        method.get_config_channel_value = MagicMock(side_effect=lambda key: settings[method._env_channel][key])
+        method.save_config_channel = MagicMock(side_effect=lambda key, value: settings[method._env_channel].__setitem__(key, value == '1'))
+        method.reply = MagicMock(side_effect=lambda key, args: args)
+        previous = Message.CURRENT
+        try:
+            Message('bridge copy', Mode.render_txt).env_channel(bridged)
+            self.assertEqual(('paused', 'Discord', 'en, de'), await method.gdo_execute())
+        finally:
+            Message.CURRENT = previous
+        self.assertTrue(settings[source]['translate_paused'])
+        self.assertFalse(settings[bridged]['translate_paused'])
+        self.assertEqual(['en', 'de'], settings[source]['translate_languages'])
 
     def test_paused_channel_is_inactive_but_retains_targets(self):
         channel = MagicMock()

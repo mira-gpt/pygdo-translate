@@ -1,8 +1,10 @@
 import re
 import os
 import unittest
+from unittest.mock import MagicMock, patch
 
 from gdo.base.Application import Application
+from gdo.base.Render import Mode
 from gdo.translate.GTranslate import GTranslate, Translation
 from gdo.translate.method.t import t
 from gdo.translate.method.trans import trans
@@ -38,7 +40,7 @@ class TranslateTest(unittest.TestCase):
     def test_short_chat_triggers(self):
         self.assertEqual('trans', trans.gdo_trigger())
         self.assertEqual('t', t.gdo_trigger())
-        self.assertEqual(['channel', 'lang', 'enabled'], [field.get_name() for field in trans().gdo_parameters()])
+        self.assertEqual(['channel', 'lang', 'enabled', 'pause'], [field.get_name() for field in trans().gdo_parameters()])
         self.assertEqual(['lang', 'text'], [field.get_name() for field in t().gdo_parameters()])
         self.assertIn('translate_languages', [field.get_name() for field in trans.gdo_method_config_channel()])
 
@@ -46,6 +48,7 @@ class TranslateTest(unittest.TestCase):
         settings = {field.get_name(): field for field in trans.gdo_method_config_channel()}
         self.assertEqual('[]', settings['translate_languages'].get_val())
         self.assertIsNone(trans().gdo_parameters()[1].get_val())
+        self.assertIsNone(trans().gdo_parameters()[-1].get_value())
 
     def test_similar_translations_are_suppressed_by_normalized_edit_distance(self):
         self.assertTrue(module_translate.suppress_similar_translation(
@@ -69,3 +72,32 @@ class TranslateTest(unittest.TestCase):
         self.assertTrue(module_translate.is_short_ascii_chat_word('LOL'))
         self.assertFalse(module_translate.is_short_ascii_chat_word('hello'))
         self.assertFalse(module_translate.is_short_ascii_chat_word('안녕하'))
+
+
+class TranslatePauseTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        Application.mode(Mode.render_cli)
+
+    async def test_pause_and_resume_preserve_languages(self):
+        method = trans()
+        channel = MagicMock()
+        channel.render_name.return_value = 'test'
+        method._env_channel = channel
+        settings = {'translate_languages': ['en', 'de'], 'translate_enabled': True, 'translate_paused': False}
+        method.param_val = MagicMock(return_value=None)
+        method.param_value = MagicMock(side_effect=lambda key: {'channel': channel, 'enabled': True, 'pause': True}[key])
+        method.get_config_channel_value = MagicMock(side_effect=lambda key: settings[key])
+        method.save_config_channel = MagicMock(side_effect=lambda key, value: settings.__setitem__(key, value == '1'))
+        method.reply = MagicMock(side_effect=lambda key, args: args)
+        self.assertEqual(('paused', 'test', 'en, de'), await method.gdo_execute())
+        self.assertEqual(['en', 'de'], settings['translate_languages'])
+        method.param_value.side_effect = lambda key: {'channel': channel, 'enabled': True, 'pause': False}[key]
+        self.assertEqual(('enabled', 'test', 'en, de'), await method.gdo_execute())
+        self.assertEqual(['en', 'de'], settings['translate_languages'])
+        self.assertTrue(settings['translate_enabled'])
+
+    def test_paused_channel_is_inactive_but_retains_targets(self):
+        channel = MagicMock()
+        settings = {'translate_languages': ['en', 'de'], 'translate_enabled': True, 'translate_paused': True}
+        with patch.object(trans, 'get_config_channel_value', side_effect=lambda key: settings[key]):
+            self.assertEqual((False, ['en', 'de']), trans.channel_settings(channel))

@@ -30,6 +30,11 @@ message is then translated to both English and Korean. Use `$trans --lang=en 0`
 to remove only English (and likewise for any other target). Normal chat
 continues unchanged if the translation provider is unavailable.
 
+Use `$trans --pause=1` to pause automatic translation without removing any
+target languages, and `$trans --pause=0` to resume with the saved targets.
+Pausing also disables `$all` speech translation; explicit one-off translation
+commands remain available. `$trans` without arguments reports the state.
+
 In a channel with translation mode enabled, `$all <text>` translates the
 text into the channel's configured language and queues that translation for
 speech. The channel language must have a supported, configured speech voice.

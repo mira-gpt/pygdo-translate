@@ -160,5 +160,5 @@ class module_translate(GDO_Module):
                     self.suppress_similar_translation(text, translation.text)):
                 continue
             await channel.send(
-                f'↳ {user.get_name()} [{translation.source_language}→{target}]: {translation.text}'
+                f'↳ {user.get_displayname()} [{translation.source_language}→{target}]: {translation.text}'
             )

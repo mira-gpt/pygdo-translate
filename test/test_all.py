@@ -7,6 +7,20 @@ from gdo.translate.module_translate import module_translate
 
 
 class AllTest(unittest.IsolatedAsyncioTestCase):
+    async def test_channel_translation_uses_displayname_not_platform_id(self):
+        channel = SimpleNamespace(send=AsyncMock())
+        user = SimpleNamespace(get_name=lambda: '353556056934449156',
+                               get_displayname=lambda: 'Tina-chan')
+        message = SimpleNamespace(_env_channel=channel, _env_user=user,
+                                  _message='freitags ist immer bunt gemischt',
+                                  get_trigger=lambda: '$')
+        with patch('gdo.translate.method.trans.trans.channel_settings', return_value=(True, ['en'])), \
+                patch('gdo.translate.GTranslate.GTranslate.translate', new=AsyncMock(
+                    return_value=Translation('Fridays are always a colorful mix', 'de'))), \
+                patch.object(module_translate, 'cfg_google_api_key', return_value='test'):
+            await module_translate().on_new_message(message)
+        channel.send.assert_awaited_once_with('↳ Tina-chan [de→en]: Fridays are always a colorful mix')
+
     async def test_translation_completes_before_speech(self):
         channel = SimpleNamespace(get_lang_iso=lambda: 'en', send=AsyncMock())
         message = SimpleNamespace(_env_channel=channel, _env_user=object(),
